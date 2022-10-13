@@ -1,4 +1,4 @@
-# camel-k: language=yaml
+# camel-k: language=yaml dependency=camel-base64 dependency=camel-fhir dependency=camel-netty-http
 
 - rest:
     binding-mode: auto
@@ -7,15 +7,9 @@
         api-docs: true
         produces: "application/fhir+json"  
         steps:
+          - to: direct:auth
           - tod: "fhir:read/resourceById?resourceClass=${header.category}&stringId=${header.id}&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4"
           - to: direct:output
-      - uri: "/capabilities"
-        api-docs: true
-        produces: "application/fhir+json"
-        steps:
-          - to: "fhir:meta/getFromServer?metatype=MetaType.class&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4"
-          - to: direct:output
-
 - from: 
     uri: direct:output
     steps:
@@ -28,6 +22,53 @@
 - from: 
     uri: direct:auth
     steps:
-      - to: log:debug
-
-    
+      - choice:
+          when:
+            - simple: "{{enableAuthentication}} == true"
+              steps:
+                - to: direct:auth2
+  
+- from: 
+    uri: direct:auth2
+    steps:                  
+      - set-body:
+          constant: "{{account}}:{{secret}}"
+      - marshal:
+          base64:
+            line-length: 0
+            id: b64auth
+      - remove-headers:
+          pattern: "*"
+      - set-header:
+          name: auth 
+          simple: "${body}"
+      - transform:
+          constant: 'grant_type=client_credentials&scope=system/DocumentReference.write system/DocumentReference.read'
+      - set-header:
+          name: CamelHttpMethod
+          expression:
+            constant: POST
+      - set-header:
+          name: Accept
+          expression:
+            constant: "application/json"
+      - set-header:
+          name: "Authorization"
+          simple: "Basic ${header.auth}"
+      - remove-headers:
+          pattern: "auth"
+      - set-header:
+          name: "Content-Type"
+          expression:
+            constant: "application/x-www-form-urlencoded"
+      - set-header:
+          name: "cache-control"
+          expression:
+            constant: "no-cache"
+      - to: 
+          uri: "netty-http:https://{{authserver}}/tenants/{{tenant-id}}/protocols/oauth2/profiles/smart-v1/token?throwExceptionOnFailure=false&traceEnabled=true&keepAlive=false"
+          pattern: "InOut"
+      - set-property:
+          name: token
+          jsonpath: $.access_token
+      - to: kamelet:log-sink?showHeaders=true
