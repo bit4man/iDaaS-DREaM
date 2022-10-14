@@ -9,7 +9,30 @@
         steps:
           - to: direct:auth
           - tod: "fhir:read/resourceById?resourceClass=${header.category}&stringId=${header.id}&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4"
-          - to: direct:output
+          - to: direct:output          
+    post:
+      - uri: "/bundle"
+        consumes: "application/json"
+        steps:
+          - marshal:
+              json:
+                library: Jackson
+          - split:
+              jsonpath: "$.entry[0]"
+              steps:
+                - set-body:
+                    jsonpath: "$.resource"
+                - set-property:
+                    name: resourceType
+                    jsonpath: "$.resourceType"
+                - set-property:
+                    name: resource_id
+                    jsonpath: "$.id"
+                - to: log:info?showAllProperties=true
+                - tod: fhir:update/resource?resource=org.hl7.fhir.r4.model.${exchangeProperty.resourceType}&stringId=${exchangeProperty.resource_id}&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4
+          - set-body:
+              constant: '{"the":"absolute-end"}'
+                    
 - from: 
     uri: direct:output
     steps:
