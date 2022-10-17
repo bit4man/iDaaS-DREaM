@@ -29,7 +29,11 @@
                     name: resource_id
                     jsonpath: "$.id"
                 - to: log:info?showAllProperties=true
-                - tod: fhir:update/resource?resource=org.hl7.fhir.r4.model.${exchangeProperty.resourceType}&stringId=${exchangeProperty.resource_id}&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4
+                - marshal:
+                    id: tofhir
+                    fhir-json:
+                      fhir-version: R4
+                - tod: fhir:update/resource?resource=${exchangeProperty.resourceType}&stringId=${exchangeProperty.resource_id}&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4
           - set-body:
               constant: '{"the":"absolute-end"}'
                     
