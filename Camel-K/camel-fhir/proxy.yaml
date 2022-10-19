@@ -27,8 +27,11 @@
                 fhir-version: R4
                 pretty-print: false
           - to: log:info
-          - to: xslt:/xslt/fixbundle.xsl
-          - tod: fhir:transaction/inBody=resource&serverUrl={{fhirserverURL}}&encoding=XML&fhirVersion=R4
+          - set-header:
+              name: CamelXsltFileName
+              value: file:///xslt/fixbundle.xsl
+          - to: xslt:file:///xslt/fixbundle.xsl?output=string
+          - tod: fhir:transaction/withBundle?bundle=resource&serverUrl={{fhirserverURL}}&encoding=XML&fhirVersion=R4
       - uri: "/bundle"
         consumes: "application/fhirjson"
         steps:           
