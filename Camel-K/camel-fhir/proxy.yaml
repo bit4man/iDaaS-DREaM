@@ -1,4 +1,4 @@
-# camel-k: language=yaml dependency=camel-base64 dependency=camel-fhir dependency=camel-netty-http
+# camel-k: language=yaml dependency=camel-base64 dependency=camel-fhir dependency=camel-netty-http config=configmap:camelfhir config=secret:fhirauthentication resource=configmap:xslt@/xslt 
 
 - rest:
     binding-mode: auto
@@ -9,31 +9,50 @@
         steps:
           - to: direct:auth
           - tod: "fhir:read/resourceById?resourceClass=${header.category}&stringId=${header.id}&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4"
-          - to: direct:output          
+          - to: direct:output        
     post:
-      - uri: "/bundle"
-        consumes: "application/json"
+      - uri: "/transaction"
+        consumes: "application/fhirjson"
+        produces: "application/xml"
         steps:
+          - unmarshal:
+              id: readJson
+              fhir-json:
+                fhir-version: R4
+                pretty-print: false
+          - to: log:info?showAll=true
           - marshal:
-              json:
-                library: Jackson
+              id: writeXML
+              fhir-xml:
+                fhir-version: R4
+                pretty-print: false
+          - to: log:info
+          - to: xslt:/xslt/fixbundle.xsl
+          - tod: fhir:transaction/inBody=resource&serverUrl={{fhirserverURL}}&encoding=XML&fhirVersion=R4
+      - uri: "/bundle"
+        consumes: "application/fhirjson"
+        steps:           
           - split:
               jsonpath: "$.entry[0]"
               steps:
-                - set-body:
-                    jsonpath: "$.resource"
-                - set-property:
-                    name: resourceType
-                    jsonpath: "$.resourceType"
-                - set-property:
-                    name: resource_id
-                    jsonpath: "$.id"
-                - to: log:info?showAllProperties=true
-                - marshal:
-                    id: tofhir
-                    fhir-json:
-                      fhir-version: R4
-                - tod: fhir:update/resource?resource=${exchangeProperty.resourceType}&stringId=${exchangeProperty.resource_id}&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4
+              - set-body:
+                  jsonpath: "$.resource"
+              - set-property:
+                  name: resourceType
+                  jsonpath: "$.resourceType"
+              - set-property:
+                  name: resource_id
+                  jsonpath: "$.id"
+              - marshal:
+                  json:
+                    library: Jackson
+              - unmarshal:
+                  id: tofhir
+                  fhir-json:
+                    fhir-version: R4
+                    pretty-print: false
+              - to: log:info?showAllProperties=true
+              - tod: fhir:update/resource?inBody=resource&stringId=${exchangeProperty.resource_id}&serverUrl={{fhirserverURL}}&encoding=JSON&fhirVersion=R4
           - set-body:
               constant: '{"the":"absolute-end"}'
                     
@@ -41,7 +60,7 @@
     uri: direct:output
     steps:
       - marshal:
-          fhir-json:
+          fhirJson:
             fhir-version: R4
             pretty-print: false
       - to: log:info?showAll=true
