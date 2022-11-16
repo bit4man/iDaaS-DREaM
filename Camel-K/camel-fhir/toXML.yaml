@@ -1,20 +1,19 @@
-# camel-k: language=yaml --resource=configmap:xslt@/xslt
+# camel-k: language=yaml 
 
-- route:
-    from:
-      uri: file:demodir?probeContentType=true&noop=true
-      steps:
-        - set-body:
-            simple: "${body.getBody}"
-        - unmarshal:
-            fhir-json:
-              fhir-version: R4
-              pretty-print: false
-        - marshal:
-            fhir-xml:
-              fhir-version: R4
-              pretty-print: true
-                #        - to: xslt:xslt/fixbundle.xsl
-        - to: file:outdir?fileName=result.xml
-        - log:
-            message: "${body}"
+- from:
+    uri: file:demodir?probeContentType=true&noop=true
+    steps:
+      - set-body:
+          simple: "${body.getBody}"
+      - unmarshal:
+          fhir-json:
+            fhir-version: R4
+            pretty-print: false
+      - marshal:
+          fhir-xml:
+            fhir-version: R4
+            pretty-print: true
+      - to: xslt:xslt/fixbundle.xsl
+      - to: file:outdir?fileName=result.xml
+      - log:
+          message: "${body}"

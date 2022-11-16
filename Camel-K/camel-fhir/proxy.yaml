@@ -1,4 +1,4 @@
-# camel-k: language=yaml dependency=camel-base64 dependency=camel-fhir dependency=camel-netty-http config=configmap:camelfhir config=secret:fhirauthentication resource=configmap:xslt@/xslt 
+# camel-k: language=yaml dependency=camel-xslt dependency=camel-base64 dependency=camel-fhir dependency=camel-netty-http config=configmap:camelfhir config=secret:fhirauthentication
 
 - rest:
     binding-mode: auto
@@ -27,10 +27,7 @@
                 fhir-version: R4
                 pretty-print: false
           - to: log:info
-          - set-header:
-              name: CamelXsltFileName
-              value: file:///xslt/fixbundle.xsl
-          - to: xslt:file:///xslt/fixbundle.xsl?output=string
+          - to: xslt:xslt/fixbundle.xsl
           - tod: fhir:transaction/withBundle?bundle=resource&serverUrl={{fhirserverURL}}&encoding=XML&fhirVersion=R4
       - uri: "/bundle"
         consumes: "application/fhirjson"
